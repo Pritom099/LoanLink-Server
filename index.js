@@ -1,10 +1,14 @@
 require('dotenv').config()
 const express = require('express');
 const cors = require('cors')
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = 3000;
-
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+}));
+app.use(express.json());
 
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -32,15 +36,20 @@ async function run() {
             res.send(result)
         })
 
-        // post data in requests
-        app.post('/request', async(req,res) =>{
-            const data = req.body;
-            const result = await requestCollection.insertOne(body)
+        app.get('/loans/:id', async (req, res) => {
+            const id = req.params.is;
+            const result = await loansCollection.findOne({ _id: new ObjectId(id) })
             res.send(result);
         })
 
-        // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // post data in requests
+        app.post('/request', async (req, res) => {
+            const data = req.body;
+            const result = await requestCollection.insertOne(data)
+            res.send(result);
+        })
+
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
