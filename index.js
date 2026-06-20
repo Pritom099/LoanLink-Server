@@ -37,7 +37,7 @@ async function run() {
         })
 
         app.get('/loans/:id', async (req, res) => {
-            const id = req.params.is;
+            const id = req.params.id;
             const result = await loansCollection.findOne({ _id: new ObjectId(id) })
             res.send(result);
         })
@@ -49,6 +49,13 @@ async function run() {
             res.send(result);
         })
 
+        // get data from requests
+        app.get('/my-loans/:email', async(req, res) => {
+            const email = req.params.email;
+            const loans = await requestCollection.find({ userEmail: email}).toArray();
+
+            res.send(loans);
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
