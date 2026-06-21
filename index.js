@@ -45,17 +45,42 @@ async function run() {
         // post data in requests
         app.post('/request', async (req, res) => {
             const data = req.body;
-            const result = await requestCollection.insertOne(data)
+            const loan = {
+                ...data,
+                status: "pending", 
+                paidAmount: 0,
+                createdAt: new Date(),
+            };
+            const result = await requestCollection.insertOne(loan)
             res.send(result);
         })
 
         // get data from requests
-        app.get('/my-loans/:email', async(req, res) => {
+        app.get('/my-loans/:email', async (req, res) => {
             const email = req.params.email;
-            const loans = await requestCollection.find({ userEmail: email}).toArray();
+            const loans = await requestCollection.find({ email: email }).toArray();
 
             res.send(loans);
         })
+
+        // get all data requests for admin
+        app.get('/request', async (req, res) => {
+            const result = await requestCollection.find().toArray();
+            res.send(result);
+        })
+
+        app.patch('/approve-loan/:id', async (req, res) => {
+            const id = req.params.id;
+
+            const result = await requestCollection.updateOne(
+                { _id: new ObjectId(id) },
+                {
+                    $set: { status: "active" }
+                }
+            );
+
+            res.send(result);
+        });
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
