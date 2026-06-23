@@ -8,8 +8,9 @@ app.use(cors({
     origin: "http://localhost:5173",
     credentials: true,
 }));
-app.use(express.json());
 
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+app.use(express.json());
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(process.env.MONGODB_URI, {
@@ -47,7 +48,7 @@ async function run() {
             const data = req.body;
             const loan = {
                 ...data,
-                status: "pending", 
+                status: "pending",
                 paidAmount: 0,
                 createdAt: new Date(),
             };
@@ -81,6 +82,41 @@ async function run() {
 
             res.send(result);
         });
+
+
+        // payment with stripe
+        app.post('/create-checkout-session', async (req, res) => {
+            try {
+                const { amount } = req.body;
+
+                const session = await stripe.checkout.sessions.create({
+                    payment_method_types: ['card'],
+                    mode: 'payment',
+
+                    line_items: [
+                        {
+                            price_data: {
+                                currency: 'usd',
+                                product_data: {
+                                    name: 'Loan Payment',
+                                },
+                                unit_amount: amount * 100, 
+                            },
+                            quantity: 1,
+                        },
+                    ],
+
+                    success_url: `${process.env.SITE_DOMAIN}/payment-success`,
+                    cancel_url: `${process.env.SITE_DOMAIN}/payment-cancel`,
+                });
+
+                res.send({ url: session.url });
+            } catch (error) {
+                console.log(error);
+                res.status(500).send({ error: "Payment session failed" });
+            }
+        });
+
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
