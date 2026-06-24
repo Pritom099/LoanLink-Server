@@ -100,13 +100,16 @@ async function run() {
                                 product_data: {
                                     name: 'Loan Payment',
                                 },
-                                unit_amount: amount * 100, 
+                                unit_amount: amount * 100,
                             },
                             quantity: 1,
                         },
                     ],
-
-                    success_url: `${process.env.SITE_DOMAIN}/payment-success`,
+                    metadata: {
+                        loanId: req.body.loanId,
+                        amount: amount,
+                    },
+                    success_url: `${process.env.SITE_DOMAIN}/payment-success?loanId=${req.body.loanId}&amount=${amount}`,
                     cancel_url: `${process.env.SITE_DOMAIN}/payment-cancel`,
                 });
 
@@ -117,6 +120,24 @@ async function run() {
             }
         });
 
+        app.patch('/update-payment/:id', async (req, res) => {
+            const id = req.params.id;
+            const { amount } = req.body;
+            const loan = await requestCollection.findOne({ _id: new ObjectId(id) });
+            if (!loan) {
+                return res.status(404).send({ error: "Loan not found" });
+            }
+            if (amount > loan.monthlyPayment) {
+                return res.status(400).send({ error: "Invalid payment amount" });
+            }
+            const result = await requestCollection.updateOne(
+                { _id: new ObjectId(id) },
+                {
+                    $inc: { paidAmount: amount }
+                }
+            );
+            res.send(result);
+        });
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
