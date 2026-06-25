@@ -64,6 +64,14 @@ async function run() {
             res.send(loans);
         })
 
+        // delete data from requests
+        app.delete('/request/:id', async (req, res) => {
+            const id = req.params.id;
+            const result = await requestCollection.deleteOne({ _id: new ObjectId(id) });
+
+            res.send(result)
+        })
+
         // get all data requests for admin
         app.get('/request', async (req, res) => {
             const result = await requestCollection.find().toArray();
@@ -127,17 +135,21 @@ async function run() {
             if (!loan) {
                 return res.status(404).send({ error: "Loan not found" });
             }
-            if (amount > loan.monthlyPayment) {
-                return res.status(400).send({ error: "Invalid payment amount" });
+            const newPaidAmount = loan.paidAmount + amount;
+            const totalAmount = loan.amount;
+            let updateDoc = {
+                $inc: { paidAmount: amount }
+            };
+            if (newPaidAmount >= totalAmount) {
+                updateDoc.$set = { status: "completed" };
             }
             const result = await requestCollection.updateOne(
                 { _id: new ObjectId(id) },
-                {
-                    $inc: { paidAmount: amount }
-                }
+                updateDoc
             );
             res.send(result);
         });
+
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
