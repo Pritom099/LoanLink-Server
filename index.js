@@ -3,6 +3,18 @@ const express = require('express');
 const cors = require('cors')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
+const { initializeApp, cert } = require("firebase-admin/app");
+const { getAuth } = require("firebase-admin/auth");
+const decoded = Buffer.from(
+    process.env.FB_SERVICE_KEY,
+    'base64'
+).toString('utf8');
+
+const serviceAccount = JSON.parse(decoded);
+
+initializeApp({
+    credential: cert(serviceAccount)
+});
 const port = 3000;
 app.use(cors({
     origin: "http://localhost:5173",
@@ -11,6 +23,22 @@ app.use(cors({
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 app.use(express.json());
+
+// jwt middlewares
+const verifyJWT = async (req, res, next) => {
+    const token = req?.headers?.authorization?.split(' ')[1]
+    console.log(token)
+    if (!token) return res.status(401).send({ message: 'Unauthorized Access!' })
+    try {
+        const decoded = await getAuth().verifyIdToken(token)
+        req.tokenEmail = decoded.email
+        console.log(decoded)
+        next()
+    } catch (err) {
+        console.log(err)
+        return res.status(401).send({ message: 'Unauthorized Access!', err })
+    }
+}
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(process.env.MONGODB_URI, {
@@ -30,6 +58,15 @@ async function run() {
         const loansCollection = db.collection('loans')
         const requestCollection = db.collection('request')
         const usersCollection = db.collection('users')
+
+        // role middlewares
+        const verifyADMIN = async (req, res, next) => {
+            const email = req.tokenEmail
+            const user = await usersCollection.findOne({ email })
+            if (user?.role !== 'admin') return res.status(403).send({ message: 'Admin only Actions!', role: user?.role })
+
+            next()
+        }
 
         // get all loans from db
         app.get('/loans', async (req, res) => {
@@ -159,7 +196,7 @@ async function run() {
 
             const query = { email: userData.email, }
 
-            const alreadyExists = await usersCollection.findOne( query )
+            const alreadyExists = await usersCollection.findOne(query)
 
             if (alreadyExists) {
                 const result = await usersCollection.updateOne(query, {
@@ -175,6 +212,12 @@ async function run() {
             res.send(result);
         })
 
+        // get a users role
+        app.get('/user/role/:email', async (req, res) => {
+            const email = req.params.email;
+            const result = await usersCollection.findOne({ email })
+            res.send({ role: result?.role })
+        })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
