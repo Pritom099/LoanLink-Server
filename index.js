@@ -17,7 +17,7 @@ initializeApp({
 });
 const port = 3000;
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: process.env.SITE_DOMAIN,
     credentials: true,
 }));
 
@@ -81,7 +81,7 @@ async function run() {
         })
 
         // post data in requests
-        app.post('/request', async (req, res) => {
+        app.post('/request',verifyJWT, async (req, res) => {
             const data = req.body;
             const loan = {
                 ...data,
@@ -94,7 +94,7 @@ async function run() {
         })
 
         // get data from requests
-        app.get('/my-loans/:email', async (req, res) => {
+        app.get('/my-loans/:email',verifyJWT, async (req, res) => {
             const email = req.params.email;
             const loans = await requestCollection.find({ email: email }).toArray();
 
@@ -110,12 +110,12 @@ async function run() {
         })
 
         // get all data requests for admin
-        app.get('/request', async (req, res) => {
+        app.get('/request',verifyJWT,verifyADMIN, async (req, res) => {
             const result = await requestCollection.find().toArray();
             res.send(result);
         })
 
-        app.patch('/approve-loan/:id', async (req, res) => {
+        app.patch('/approve-loan/:id',verifyJWT,verifyADMIN, async (req, res) => {
             const id = req.params.id;
 
             const result = await requestCollection.updateOne(
@@ -219,9 +219,15 @@ async function run() {
             res.send({ role: result?.role })
         })
 
+        app.get('/users', verifyJWT, verifyADMIN, async (req, res) => {
+            const adminEmail = req.tokenEmail
+            const result = await usersCollection.find({ email: { $ne: adminEmail } }).toArray();
+            res.send(result);
+        });
+
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         //await client.close();
