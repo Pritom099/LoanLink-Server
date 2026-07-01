@@ -9,7 +9,9 @@ const decoded = Buffer.from(
     process.env.FB_SERVICE_KEY,
     'base64'
 ).toString('utf8');
-
+console.log(process.env.FB_SERVICE_KEY ? "KEY FOUND" : "KEY NOT FOUND");
+console.log("FB_SERVICE_KEY exists:", !!process.env.FB_SERVICE_KEY);
+console.log("Decoded length:", decoded.length);
 const serviceAccount = JSON.parse(decoded);
 
 initializeApp({
@@ -52,7 +54,7 @@ const client = new MongoClient(process.env.MONGODB_URI, {
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
 
         const db = client.db('loanlink')
         const loansCollection = db.collection('loans')
@@ -81,7 +83,7 @@ async function run() {
         })
 
         // post data in requests
-        app.post('/request',verifyJWT, async (req, res) => {
+        app.post('/request', verifyJWT, async (req, res) => {
             const data = req.body;
             const loan = {
                 ...data,
@@ -94,7 +96,7 @@ async function run() {
         })
 
         // get data from requests
-        app.get('/my-loans/:email',verifyJWT, async (req, res) => {
+        app.get('/my-loans/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const loans = await requestCollection.find({ email: email }).toArray();
 
@@ -110,12 +112,12 @@ async function run() {
         })
 
         // get all data requests for admin
-        app.get('/request',verifyJWT,verifyADMIN, async (req, res) => {
+        app.get('/request', verifyJWT, verifyADMIN, async (req, res) => {
             const result = await requestCollection.find().toArray();
             res.send(result);
         })
 
-        app.patch('/approve-loan/:id',verifyJWT,verifyADMIN, async (req, res) => {
+        app.patch('/approve-loan/:id', verifyJWT, verifyADMIN, async (req, res) => {
             const id = req.params.id;
 
             const result = await requestCollection.updateOne(
